@@ -42,9 +42,24 @@ Describe 'Ansible.API Module' {
             Get-Command -Module 'Ansible.API' -Name 'Get-AAPMe' | Should -Not -BeNullOrEmpty
         }
 
+        It 'Exports Get-AAPJobTemplate' {
+            Get-Command -Module 'Ansible.API' -Name 'Get-AAPJobTemplate' | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Exports Start-AAPJobTemplate' {
+            Get-Command -Module 'Ansible.API' -Name 'Start-AAPJobTemplate' | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Exports Get-AAPJob' {
+            Get-Command -Module 'Ansible.API' -Name 'Get-AAPJob' | Should -Not -BeNullOrEmpty
+        }
+
         It 'Does not export private functions' {
             Get-Command -Module 'Ansible.API' -Name 'Get-AAPApiUrl' -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
             Get-Command -Module 'Ansible.API' -Name 'Invoke-AAPRestMethod' -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
+            Get-Command -Module 'Ansible.API' -Name 'ConvertTo-AAPPascalCase' -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
+            Get-Command -Module 'Ansible.API' -Name 'ConvertTo-AAPDynamicParam' -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
+            Get-Command -Module 'Ansible.API' -Name 'Get-AAPCachedJobTemplates' -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
         }
     }
 
@@ -61,8 +76,35 @@ Describe 'Ansible.API Module' {
             { Get-AAPMe } | Should -Throw '*Not connected to AAP*'
         }
 
+        It 'Get-AAPJobTemplate throws when not connected' {
+            { Get-AAPJobTemplate } | Should -Throw '*Not connected to AAP*'
+        }
+
+        It 'Get-AAPJob throws when not connected' {
+            { Get-AAPJob -Id 1 } | Should -Throw '*Not connected to AAP*'
+        }
+
         It 'Disconnect-AAP warns when not connected' {
             Disconnect-AAP 3>&1 | Should -BeLike '*No active AAP session*'
+        }
+    }
+
+    Context 'ConvertTo-AAPPascalCase' {
+        BeforeAll {
+            # Dot-source the private function for testing
+            . (Join-Path $PSScriptRoot '..' 'Private' 'ConvertTo-AAPPascalCase.ps1')
+        }
+
+        It 'Converts simple snake_case' {
+            ConvertTo-AAPPascalCase -Value 'target_host' | Should -Be 'TargetHost'
+        }
+
+        It 'Converts single word' {
+            ConvertTo-AAPPascalCase -Value 'hostname' | Should -Be 'Hostname'
+        }
+
+        It 'Converts multiple underscores' {
+            ConvertTo-AAPPascalCase -Value 'deploy_env_name' | Should -Be 'DeployEnvName'
         }
     }
 }
