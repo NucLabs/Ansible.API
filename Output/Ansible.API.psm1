@@ -1,6 +1,6 @@
 #
 # Module: Ansible.API
-# Built:  2026-04-13 14:33:34
+# Built:  2026-04-14 08:39:58
 #
 
 #region ConvertTo-AAPDynamicParam.ps1
@@ -266,23 +266,69 @@ function Connect-AAP {
     $baseUrl = $Url.TrimEnd('/')
     $tokenUrl = "$baseUrl/api/v2/tokens/"
 
+    $certParam = @{}
+    if ($SkipCertificateCheck) {
+        $certParam['SkipCertificateCheck'] = $true
+    }
+
+    # Try Basic Auth first (works on most AWX instances)
     $authBytes = [System.Text.Encoding]::UTF8.GetBytes(
         "$($Credential.UserName):$($Credential.GetNetworkCredential().Password)"
     )
     $authHeader = "Basic $([Convert]::ToBase64String($authBytes))"
 
-    $params = @{
-        Method      = 'POST'
-        Uri         = $tokenUrl
-        Headers     = @{ Authorization = $authHeader }
-        ContentType = 'application/json'
+    $response = $null
+    try {
+        $response = Invoke-RestMethod -Method POST -Uri $tokenUrl `
+            -Headers @{ Authorization = $authHeader } `
+            -ContentType 'application/json' @certParam
+    }
+    catch {
+        $statusCode = $_.Exception.Response.StatusCode.value__
+        if ($statusCode -in 401, 403) {
+            Write-Verbose 'Basic auth failed, falling back to session-based login via /api/login/'
+        } else {
+            throw
+        }
     }
 
-    if ($SkipCertificateCheck) {
-        $params['SkipCertificateCheck'] = $true
-    }
+    # Fallback: session-based login (required by some AAP/Controller instances)
+    if (-not $response) {
+        $session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
 
-    $response = Invoke-RestMethod @params
+        # GET /api/login/ to obtain the CSRF cookie
+        Invoke-WebRequest -Uri "$baseUrl/api/login/" -SessionVariable 'session' `
+            -UseBasicParsing @certParam | Out-Null
+
+        $csrfToken = $session.Cookies.GetCookies("$baseUrl")['csrftoken'].Value
+
+        # POST /api/login/ with form data to establish an authenticated session
+        $loginBody = @{
+            username            = $Credential.UserName
+            password            = $Credential.GetNetworkCredential().Password
+            csrfmiddlewaretoken = $csrfToken
+            next                = '/api/'
+        }
+        $loginHeaders = @{
+            Referer = "$baseUrl/api/login/"
+        }
+
+        Invoke-WebRequest -Uri "$baseUrl/api/login/" -Method POST `
+            -Body $loginBody -Headers $loginHeaders `
+            -WebSession $session -UseBasicParsing `
+            -ContentType 'application/x-www-form-urlencoded' @certParam | Out-Null
+
+        # Now create the token using the authenticated session
+        $csrfToken = $session.Cookies.GetCookies("$baseUrl")['csrftoken'].Value
+        $tokenHeaders = @{
+            Referer      = "$baseUrl/api/v2/tokens/"
+            'X-CSRFToken' = $csrfToken
+        }
+
+        $response = Invoke-RestMethod -Method POST -Uri $tokenUrl `
+            -Headers $tokenHeaders -WebSession $session `
+            -ContentType 'application/json' @certParam
+    }
 
     $Script:AAPSession = @{
         BaseUrl              = $baseUrl
