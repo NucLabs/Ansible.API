@@ -89,22 +89,19 @@ Describe 'Ansible.API Module' {
         }
     }
 
-    Context 'ConvertTo-AAPPascalCase' {
+    Context 'ConvertTo-AAPDynamicParam' {
         BeforeAll {
-            # Dot-source the private function for testing
-            . (Join-Path $PSScriptRoot '..' 'Private' 'ConvertTo-AAPPascalCase.ps1')
+            . (Join-Path $PSScriptRoot '..' 'Private' 'ConvertTo-AAPDynamicParam.ps1')
         }
 
-        It 'Converts simple snake_case' {
-            ConvertTo-AAPPascalCase -Value 'target_host' | Should -Be 'TargetHost'
-        }
-
-        It 'Converts single word' {
-            ConvertTo-AAPPascalCase -Value 'hostname' | Should -Be 'Hostname'
-        }
-
-        It 'Converts multiple underscores' {
-            ConvertTo-AAPPascalCase -Value 'deploy_env_name' | Should -Be 'DeployEnvName'
+        It 'Uses original variable names as parameter names' {
+            $spec = @(
+                @{ variable = 'target_host'; type = 'text'; required = $true; question_name = 'Target Host'; default = ''; choices = '' }
+                @{ variable = 'deploy_env'; type = 'multiplechoice'; required = $false; question_name = 'Environment'; default = 'dev'; choices = "dev`nstaging`nprod" }
+            )
+            $result = ConvertTo-AAPDynamicParam -SurveySpec $spec
+            $result.Keys | Should -Contain 'target_host'
+            $result.Keys | Should -Contain 'deploy_env'
         }
     }
 }

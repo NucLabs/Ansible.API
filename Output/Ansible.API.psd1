@@ -18,7 +18,7 @@ ModuleVersion = '0.1.0'
 # CompatiblePSEditions = @()
 
 # ID used to uniquely identify this module
-GUID = 'ad4d28cb-db8e-4412-a6b0-1aa8060b88f4'
+GUID = '503bf5c5-628c-43ba-a951-230d5493bacc'
 
 # Author of this module
 Author = 'Ansible.API Contributors'

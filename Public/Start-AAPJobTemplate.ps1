@@ -105,15 +105,14 @@ function Start-AAPJobTemplate {
         $vars = @{}
 
         # Collect bound dynamic parameters (survey fields)
-        if ($Script:AAPSurveyParamMap) {
-            foreach ($paramName in $Script:AAPSurveyParamMap.Keys) {
+        if ($Script:AAPSurveyParamNames) {
+            foreach ($paramName in $Script:AAPSurveyParamNames) {
                 if ($PSBoundParameters.ContainsKey($paramName)) {
-                    $originalName = $Script:AAPSurveyParamMap[$paramName]
                     $value = $PSBoundParameters[$paramName]
                     if ($value -is [array]) {
-                        $vars[$originalName] = $value -join "`n"
+                        $vars[$paramName] = $value -join "`n"
                     } else {
-                        $vars[$originalName] = $value
+                        $vars[$paramName] = $value
                     }
                 }
             }

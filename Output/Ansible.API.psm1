@@ -1,6 +1,6 @@
 #
 # Module: Ansible.API
-# Built:  2026-04-14 11:57:33
+# Built:  2026-04-14 12:43:29
 #
 
 #region ConvertTo-AAPDynamicParam.ps1
@@ -10,8 +10,8 @@ function ConvertTo-AAPDynamicParam {
         Converts an AWX/AAP survey_spec into a RuntimeDefinedParameterDictionary.
     .DESCRIPTION
         Takes the spec array from GET /api/v2/job_templates/{id}/survey_spec/
-        and generates typed PowerShell dynamic parameters. Also populates
-        $Script:AAPSurveyParamMap with the PascalCase-to-original-variable mapping.
+        and generates typed PowerShell dynamic parameters. Stores the list of
+        survey variable names in $Script:AAPSurveyParamNames.
     #>
     [CmdletBinding()]
     [OutputType([System.Management.Automation.RuntimeDefinedParameterDictionary])]
@@ -21,12 +21,11 @@ function ConvertTo-AAPDynamicParam {
     )
 
     $paramDictionary = [System.Management.Automation.RuntimeDefinedParameterDictionary]::new()
-    $Script:AAPSurveyParamMap = @{}
+    $Script:AAPSurveyParamNames = [System.Collections.Generic.List[string]]::new()
 
     foreach ($field in $SurveySpec) {
-        $originalName = $field.variable
-        $paramName = ConvertTo-AAPPascalCase -Value $originalName
-        $Script:AAPSurveyParamMap[$paramName] = $originalName
+        $paramName = $field.variable
+        $Script:AAPSurveyParamNames.Add($paramName)
 
         # Determine .NET type
         $paramType = switch ($field.type) {
@@ -748,15 +747,14 @@ function Start-AAPJobTemplate {
         $vars = @{}
 
         # Collect bound dynamic parameters (survey fields)
-        if ($Script:AAPSurveyParamMap) {
-            foreach ($paramName in $Script:AAPSurveyParamMap.Keys) {
+        if ($Script:AAPSurveyParamNames) {
+            foreach ($paramName in $Script:AAPSurveyParamNames) {
                 if ($PSBoundParameters.ContainsKey($paramName)) {
-                    $originalName = $Script:AAPSurveyParamMap[$paramName]
                     $value = $PSBoundParameters[$paramName]
                     if ($value -is [array]) {
-                        $vars[$originalName] = $value -join "`n"
+                        $vars[$paramName] = $value -join "`n"
                     } else {
-                        $vars[$originalName] = $value
+                        $vars[$paramName] = $value
                     }
                 }
             }
