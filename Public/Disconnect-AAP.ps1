@@ -16,12 +16,20 @@ function Disconnect-AAP {
         return
     }
 
-    $tokenId = $Script:AAPSession.TokenId
-    try {
-        Invoke-AAPRestMethod -Method DELETE -Path "/api/v2/tokens/$tokenId/"
-    }
-    catch {
-        Write-Warning "Failed to revoke token on server: $_"
+    $authMethod = $Script:AAPSession.AuthMethod
+
+    if ($authMethod -eq 'BearerToken' -and $Script:AAPSession.TokenId) {
+        # Revoke the token we created
+        try {
+            Invoke-AAPRestMethod -Method DELETE -Path "/api/v2/tokens/$($Script:AAPSession.TokenId)/"
+        }
+        catch {
+            Write-Warning "Failed to revoke token on server: $_"
+        }
+    } elseif ($authMethod -eq 'Token') {
+        Write-Verbose 'Pre-generated token provided — not revoking (manage it externally).'
+    } elseif ($authMethod -eq 'Session') {
+        Write-Verbose 'Session-based auth — session cookies cleared.'
     }
 
     $Script:AAPSession = $null

@@ -30,8 +30,22 @@ function Invoke-AAPRestMethod {
     $params = @{
         Method      = $Method
         Uri         = $uri
-        Headers     = @{ Authorization = "Bearer $($Script:AAPSession.Token)" }
         ContentType = $ContentType
+    }
+
+    if ($Script:AAPSession.AuthMethod -eq 'Session') {
+        # Session-cookie auth: use the stored WebSession and include CSRF token for mutating requests
+        $params['WebSession'] = $Script:AAPSession.WebSession
+        if ($Method -ne 'GET') {
+            $csrfToken = $Script:AAPSession.WebSession.Cookies.GetCookies($Script:AAPSession.BaseUrl)['csrftoken'].Value
+            $params['Headers'] = @{
+                'X-CSRFToken' = $csrfToken
+                Referer       = $uri
+            }
+        }
+    } else {
+        # Bearer token auth (BearerToken or pre-generated Token)
+        $params['Headers'] = @{ Authorization = "Bearer $($Script:AAPSession.Token)" }
     }
 
     if ($Script:AAPSession.SkipCertificateCheck) {
