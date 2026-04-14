@@ -10,6 +10,7 @@
 param()
 
 $ModuleName = 'Ansible.API'
+$ModuleGuid = '9243b235-efb1-4ee1-adc3-f5007c70cc62'
 $OutputDir  = Join-Path $PSScriptRoot 'Output'
 
 # Ensure output directory exists
@@ -57,6 +58,7 @@ $functionsToExport = $publicFiles | ForEach-Object { $_.BaseName }
 # Build .psd1 manifest
 $manifestParams = @{
     Path               = $psd1Path
+    Guid               = $ModuleGuid
     RootModule         = "$ModuleName.psm1"
     ModuleVersion      = '0.1.0'
     Author             = 'Ansible.API Contributors'
