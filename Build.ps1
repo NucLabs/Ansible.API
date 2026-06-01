@@ -36,16 +36,16 @@ $psm1Content = @"
 
 # Add private functions
 foreach ($file in $privateFiles) {
-    $psm1Content += "`n#region $($file.Name)`n"
+    $psm1Content += "`n"
     $psm1Content += (Get-Content -Path $file.FullName -Raw)
-    $psm1Content += "`n#endregion`n"
+    $psm1Content += "`n"
 }
 
 # Add public functions
 foreach ($file in $publicFiles) {
-    $psm1Content += "`n#region $($file.Name)`n"
+    $psm1Content += "`n"
     $psm1Content += (Get-Content -Path $file.FullName -Raw)
-    $psm1Content += "`n#endregion`n"
+    $psm1Content += "`n"
 }
 
 # Write .psm1

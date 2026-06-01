@@ -1,9 +1,8 @@
 #
 # Module: Ansible.API
-# Built:  2026-05-21 17:00:39
+# Built:  2026-06-01 14:27:38
 #
 
-#region ConvertTo-AAPDynamicParam.ps1
 function ConvertTo-AAPDynamicParam {
     <#
     .SYNOPSIS
@@ -75,9 +74,7 @@ function ConvertTo-AAPDynamicParam {
     return $paramDictionary
 }
 
-#endregion
 
-#region Get-AAPApiUrl.ps1
 function Get-AAPApiUrl {
     <#
     .SYNOPSIS
@@ -101,9 +98,7 @@ function Get-AAPApiUrl {
     return "$baseUrl/$Path"
 }
 
-#endregion
 
-#region Get-AAPCachedJobTemplates.ps1
 function Get-AAPCachedJobTemplates {
     <#
     .SYNOPSIS
@@ -152,9 +147,56 @@ function Get-AAPCachedJobTemplates {
     return $Script:AAPSession.JobTemplateCache.Templates
 }
 
-#endregion
 
-#region Invoke-AAPRestMethod.ps1
+function Get-AAPCachedWorkflowJobTemplates {
+    <#
+    .SYNOPSIS
+        Returns a cached list of all workflow job templates, refreshing if stale.
+    .DESCRIPTION
+        Fetches all workflow job templates from /api/v2/workflow_job_templates/ with pagination.
+        Caches the results in $Script:AAPSession.WorkflowJobTemplateCache for 60 seconds
+        to avoid excessive API calls during tab completion.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if (-not $Script:AAPSession) {
+        return @()
+    }
+
+    $cache = $Script:AAPSession.WorkflowJobTemplateCache
+    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+
+    if ($cache -and $cache.CachedAt -and ($now - $cache.CachedAt) -lt 60) {
+        return $cache.Templates
+    }
+
+    # Fetch all templates with pagination
+    $templates = [System.Collections.Generic.List[object]]::new()
+    $path = '/api/v2/workflow_job_templates/?page_size=200'
+
+    while ($path) {
+        $response = Invoke-AAPRestMethod -Method GET -Path $path
+        if ($response.results) {
+            $templates.AddRange($response.results)
+        }
+        if ($response.next) {
+            # next is a full path like /api/v2/workflow_job_templates/?page=2
+            $path = $response.next
+        } else {
+            $path = $null
+        }
+    }
+
+    $Script:AAPSession.WorkflowJobTemplateCache = @{
+        Templates = $templates.ToArray()
+        CachedAt  = $now
+    }
+
+    return $Script:AAPSession.WorkflowJobTemplateCache.Templates
+}
+
+
 function Invoke-AAPRestMethod {
     <#
     .SYNOPSIS
@@ -220,9 +262,7 @@ function Invoke-AAPRestMethod {
     Invoke-RestMethod @params
 }
 
-#endregion
 
-#region Connect-AAP.ps1
 function Connect-AAP {
     <#
     .SYNOPSIS
@@ -413,9 +453,7 @@ function Connect-AAP {
     }
 }
 
-#endregion
 
-#region Disconnect-AAP.ps1
 function Disconnect-AAP {
     <#
     .SYNOPSIS
@@ -454,9 +492,7 @@ function Disconnect-AAP {
     Write-Verbose 'Disconnected from AAP.'
 }
 
-#endregion
 
-#region Get-AAPJob.ps1
 function Get-AAPJob {
     <#
     .SYNOPSIS
@@ -515,9 +551,7 @@ function Get-AAPJob {
     $job
 }
 
-#endregion
 
-#region Get-AAPJobEvents.ps1
 function Get-AAPJobEvents {
     <#
     .SYNOPSIS
@@ -594,9 +628,7 @@ function Get-AAPJobEvents {
     }
 }
 
-#endregion
 
-#region Get-AAPJobTemplate.ps1
 function Get-AAPJobTemplate {
     <#
     .SYNOPSIS
@@ -667,9 +699,29 @@ function Get-AAPJobTemplate {
     }
 }
 
-#endregion
 
-#region Get-AAPWorkflowJobTemplate.ps1
+function Get-AAPMe {
+    <#
+    .SYNOPSIS
+        Returns the current authenticated user's information from AAP/AWX.
+    .DESCRIPTION
+        Calls GET /api/v2/me/ and returns the user object.
+    .EXAMPLE
+        Get-AAPMe
+    #>
+    [CmdletBinding()]
+    param()
+
+    $response = Invoke-AAPRestMethod -Method GET -Path '/api/v2/me/'
+
+    if ($response.results) {
+        $response.results
+    } else {
+        $response
+    }
+}
+
+
 function Get-AAPWorkflowJobTemplate {
     <#
     .SYNOPSIS
@@ -740,33 +792,27 @@ function Get-AAPWorkflowJobTemplate {
     }
 }
 
-#endregion
-
-#region Get-AAPMe.ps1
-function Get-AAPMe {
-    <#
-    .SYNOPSIS
-        Returns the current authenticated user's information from AAP/AWX.
-    .DESCRIPTION
-        Calls GET /api/v2/me/ and returns the user object.
-    .EXAMPLE
-        Get-AAPMe
-    #>
-    [CmdletBinding()]
-    param()
-
-    $response = Invoke-AAPRestMethod -Method GET -Path '/api/v2/me/'
-
-    if ($response.results) {
-        $response.results
-    } else {
-        $response
+Register-ArgumentCompleter -CommandName 'Get-AAPWorkflowJobTemplate' -ParameterName 'Name' -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+    $templates = Get-AAPCachedWorkflowJobTemplates
+    $templates | Where-Object { $_.name -like "$wordToComplete*" } | ForEach-Object {
+        $name = $_.name
+        $desc = $_.description
+        if ($name -match '\s') {
+            $completionText = "'$name'"
+        } else {
+            $completionText = $name
+        }
+        [System.Management.Automation.CompletionResult]::new(
+            $completionText,
+            $name,
+            'ParameterValue',
+            ($desc ? $desc : $name)
+        )
     }
 }
 
-#endregion
 
-#region Start-AAPJobTemplate.ps1
 function Start-AAPJobTemplate {
     <#
     .SYNOPSIS
@@ -929,26 +975,6 @@ function Start-AAPJobTemplate {
 }
 
 # Register argument completer for -Name parameter
-Register-ArgumentCompleter -CommandName 'Get-AAPWorkflowJobTemplate' -ParameterName 'Name' -ScriptBlock {
-    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
-    $templates = Get-AAPCachedWorkflowJobTemplates
-    $templates | Where-Object { $_.name -like "$wordToComplete*" } | ForEach-Object {
-        $name = $_.name
-        $desc = $_.description
-        if ($name -match '\s') {
-            $completionText = "'$name'"
-        } else {
-            $completionText = $name
-        }
-        [System.Management.Automation.CompletionResult]::new(
-            $completionText,
-            $name,
-            'ParameterValue',
-            ($desc ? $desc : $name)
-        )
-    }
-}
-
 Register-ArgumentCompleter -CommandName 'Start-AAPJobTemplate' -ParameterName 'Name' -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
     $templates = Get-AAPCachedJobTemplates
@@ -969,5 +995,187 @@ Register-ArgumentCompleter -CommandName 'Start-AAPJobTemplate' -ParameterName 'N
     }
 }
 
-#endregion
+
+function Start-AAPWorkflowJobTemplate {
+    <#
+    .SYNOPSIS
+        Launches an AAP/AWX workflow job template by name or ID.
+    .DESCRIPTION
+        Launches a workflow job template. If the template has a survey, the survey fields
+        are exposed as dynamic PowerShell parameters with proper types and validation.
+        Use tab-completion on -Name to discover available workflow templates.
+    .PARAMETER Name
+        The name of the workflow job template to launch. Supports tab-completion.
+    .PARAMETER Id
+        The ID of the workflow job template to launch (alternative to -Name).
+    .PARAMETER ExtraVars
+        A hashtable of extra variables to pass to the workflow job. These are merged with
+        any survey parameters provided via dynamic parameters.
+    .PARAMETER Wait
+        Wait for the workflow job to complete before returning.
+    .PARAMETER WaitTimeout
+        Maximum seconds to wait for job completion (default: 600).
+    .PARAMETER PollInterval
+        Seconds between status checks when waiting (default: 5).
+    .EXAMPLE
+        Start-AAPWorkflowJobTemplate -Name 'Deploy Pipeline' -Wait
+    .EXAMPLE
+        Start-AAPWorkflowJobTemplate -Name 'Provision Environment' -TargetEnv 'production' -Wait
+    #>
+    [CmdletBinding(DefaultParameterSetName = 'ByName')]
+    param(
+        [Parameter(ParameterSetName = 'ByName', Mandatory, Position = 0)]
+        [string]$Name,
+
+        [Parameter(ParameterSetName = 'ById', Mandatory)]
+        [int]$Id,
+
+        [Parameter()]
+        [hashtable]$ExtraVars,
+
+        [Parameter()]
+        [switch]$Wait,
+
+        [Parameter()]
+        [int]$WaitTimeout = 600,
+
+        [Parameter()]
+        [int]$PollInterval = 5
+    )
+
+    DynamicParam {
+        if (-not $Script:AAPSession) { return }
+
+        # Resolve the template to check for survey
+        $templateId = $null
+        if ($PSBoundParameters.ContainsKey('Id')) {
+            $templateId = $PSBoundParameters['Id']
+        } elseif ($PSBoundParameters.ContainsKey('Name')) {
+            $templateName = $PSBoundParameters['Name']
+            $templates = Get-AAPCachedWorkflowJobTemplates
+            $match = $templates | Where-Object { $_.name -eq $templateName } | Select-Object -First 1
+            if ($match) {
+                $templateId = $match.id
+            }
+        }
+
+        if ($templateId) {
+            try {
+                $cached = $Script:AAPSession.WorkflowSurveySpecCache
+                if ($cached -and $cached.TemplateId -eq $templateId) {
+                    $surveySpec = $cached.Spec
+                } else {
+                    $template = Invoke-AAPRestMethod -Method GET -Path "/api/v2/workflow_job_templates/$templateId/"
+                    if ($template.survey_enabled) {
+                        $survey = Invoke-AAPRestMethod -Method GET -Path "/api/v2/workflow_job_templates/$templateId/survey_spec/"
+                        $surveySpec = $survey.spec
+                        $Script:AAPSession.WorkflowSurveySpecCache = @{
+                            TemplateId = $templateId
+                            Spec       = $surveySpec
+                        }
+                    }
+                }
+            } catch {
+                # Fail silently during tab completion — don't break the prompt
+                $surveySpec = $null
+            }
+
+            if ($surveySpec) {
+                return (ConvertTo-AAPDynamicParam -SurveySpec $surveySpec)
+            }
+        }
+    }
+
+    Process {
+        # Resolve template ID
+        $templateId = if ($PSBoundParameters.ContainsKey('Id')) {
+            $Id
+        } else {
+            $templates = Get-AAPCachedWorkflowJobTemplates
+            $match = $templates | Where-Object { $_.name -eq $Name } | Select-Object -First 1
+            if (-not $match) {
+                throw "Workflow job template '$Name' not found."
+            }
+            $match.id
+        }
+
+        # Build extra_vars from dynamic params + ExtraVars
+        $vars = @{}
+
+        # Collect bound dynamic parameters (survey fields)
+        if ($Script:AAPSurveyParamNames) {
+            foreach ($paramName in $Script:AAPSurveyParamNames) {
+                if ($PSBoundParameters.ContainsKey($paramName)) {
+                    $value = $PSBoundParameters[$paramName]
+                    if ($value -is [array]) {
+                        $vars[$paramName] = $value -join "`n"
+                    } else {
+                        $vars[$paramName] = $value
+                    }
+                }
+            }
+        }
+
+        # Merge ExtraVars (explicit ExtraVars take precedence)
+        if ($ExtraVars) {
+            foreach ($key in $ExtraVars.Keys) {
+                $vars[$key] = $ExtraVars[$key]
+            }
+        }
+
+        # Build launch body
+        $body = @{}
+        if ($vars.Count -gt 0) {
+            $body['extra_vars'] = $vars
+        }
+
+        # Launch
+        $job = Invoke-AAPRestMethod -Method POST -Path "/api/v2/workflow_job_templates/$templateId/launch/" -Body $body
+
+        if ($Wait) {
+            $jobId = $job.id
+            $elapsed = 0
+            $terminalStates = @('successful', 'failed', 'error', 'canceled')
+
+            while ($elapsed -lt $WaitTimeout) {
+                $jobStatus = Invoke-AAPRestMethod -Method GET -Path "/api/v2/workflow_jobs/$jobId/"
+
+                if ($jobStatus.status -in $terminalStates) {
+                    return $jobStatus
+                }
+
+                Write-Verbose "Workflow job $jobId status: $($jobStatus.status) — waiting ($elapsed`s / $WaitTimeout`s)"
+                Start-Sleep -Seconds $PollInterval
+                $elapsed += $PollInterval
+            }
+
+            Write-Warning "Workflow job $jobId did not complete within $WaitTimeout seconds. Last status: $($jobStatus.status)"
+            return $jobStatus
+        }
+
+        $job
+    }
+}
+
+# Register argument completer for -Name parameter
+Register-ArgumentCompleter -CommandName 'Start-AAPWorkflowJobTemplate' -ParameterName 'Name' -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+    $templates = Get-AAPCachedWorkflowJobTemplates
+    $templates | Where-Object { $_.name -like "$wordToComplete*" } | ForEach-Object {
+        $name = $_.name
+        $desc = $_.description
+        if ($name -match '\s') {
+            $completionText = "'$name'"
+        } else {
+            $completionText = $name
+        }
+        [System.Management.Automation.CompletionResult]::new(
+            $completionText,
+            $name,
+            'ParameterValue',
+            ($desc ? $desc : $name)
+        )
+    }
+}
+
 
