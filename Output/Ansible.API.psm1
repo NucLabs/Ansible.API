@@ -1,6 +1,6 @@
 #
 # Module: Ansible.API
-# Built:  2026-06-01 14:27:38
+# Built:  2026-06-10 13:44:18
 #
 
 function ConvertTo-AAPDynamicParam {
@@ -827,7 +827,11 @@ function Start-AAPJobTemplate {
         The ID of the job template to launch (alternative to -Name).
     .PARAMETER ExtraVars
         A hashtable of extra variables to pass to the job. These are merged with
-        any survey parameters provided via dynamic parameters.
+        any survey parameters provided via dynamic parameters. Mutually exclusive with -ExtraVarsJson and -ExtraVarsFile.
+    .PARAMETER ExtraVarsJson
+        A JSON string of extra variables to pass to the job. Mutually exclusive with -ExtraVars and -ExtraVarsFile.
+    .PARAMETER ExtraVarsFile
+        Path to a JSON file containing extra variables. Mutually exclusive with -ExtraVars and -ExtraVarsJson.
     .PARAMETER Wait
         Wait for the job to complete before returning.
     .PARAMETER WaitTimeout
@@ -849,6 +853,13 @@ function Start-AAPJobTemplate {
 
         [Parameter()]
         [hashtable]$ExtraVars,
+
+        [Parameter()]
+        [string]$ExtraVarsJson,
+
+        [Parameter()]
+        [ValidateScript({ Test-Path $_ -PathType Leaf })]
+        [string]$ExtraVarsFile,
 
         [Parameter()]
         [switch]$Wait,
@@ -916,7 +927,32 @@ function Start-AAPJobTemplate {
             $match.id
         }
 
-        # Build extra_vars from dynamic params + ExtraVars
+        # Validate mutual exclusion of extra vars parameters
+        $extraVarsParamsProvided = @('ExtraVars', 'ExtraVarsJson', 'ExtraVarsFile') |
+            Where-Object { $PSBoundParameters.ContainsKey($_) }
+        if ($extraVarsParamsProvided.Count -gt 1) {
+            throw "Only one of -ExtraVars, -ExtraVarsJson, or -ExtraVarsFile may be specified."
+        }
+
+        # Resolve extra vars from whichever input form was provided
+        $resolvedExtraVars = @{}
+        if ($PSBoundParameters.ContainsKey('ExtraVars')) {
+            $resolvedExtraVars = $ExtraVars
+        } elseif ($PSBoundParameters.ContainsKey('ExtraVarsJson')) {
+            try {
+                $resolvedExtraVars = $ExtraVarsJson | ConvertFrom-Json -AsHashtable
+            } catch {
+                throw "Failed to parse -ExtraVarsJson: $_"
+            }
+        } elseif ($PSBoundParameters.ContainsKey('ExtraVarsFile')) {
+            try {
+                $resolvedExtraVars = Get-Content -Path $ExtraVarsFile -Raw | ConvertFrom-Json -AsHashtable
+            } catch {
+                throw "Failed to parse -ExtraVarsFile '$ExtraVarsFile': $_"
+            }
+        }
+
+        # Build extra_vars from dynamic params + resolved extra vars
         $vars = @{}
 
         # Collect bound dynamic parameters (survey fields)
@@ -933,11 +969,9 @@ function Start-AAPJobTemplate {
             }
         }
 
-        # Merge ExtraVars (explicit ExtraVars take precedence)
-        if ($ExtraVars) {
-            foreach ($key in $ExtraVars.Keys) {
-                $vars[$key] = $ExtraVars[$key]
-            }
+        # Merge resolved extra vars (take precedence over survey fields)
+        foreach ($key in $resolvedExtraVars.Keys) {
+            $vars[$key] = $resolvedExtraVars[$key]
         }
 
         # Build launch body
@@ -1010,7 +1044,11 @@ function Start-AAPWorkflowJobTemplate {
         The ID of the workflow job template to launch (alternative to -Name).
     .PARAMETER ExtraVars
         A hashtable of extra variables to pass to the workflow job. These are merged with
-        any survey parameters provided via dynamic parameters.
+        any survey parameters provided via dynamic parameters. Mutually exclusive with -ExtraVarsJson and -ExtraVarsFile.
+    .PARAMETER ExtraVarsJson
+        A JSON string of extra variables to pass to the workflow job. Mutually exclusive with -ExtraVars and -ExtraVarsFile.
+    .PARAMETER ExtraVarsFile
+        Path to a JSON file containing extra variables. Mutually exclusive with -ExtraVars and -ExtraVarsJson.
     .PARAMETER Wait
         Wait for the workflow job to complete before returning.
     .PARAMETER WaitTimeout
@@ -1032,6 +1070,13 @@ function Start-AAPWorkflowJobTemplate {
 
         [Parameter()]
         [hashtable]$ExtraVars,
+
+        [Parameter()]
+        [string]$ExtraVarsJson,
+
+        [Parameter()]
+        [ValidateScript({ Test-Path $_ -PathType Leaf })]
+        [string]$ExtraVarsFile,
 
         [Parameter()]
         [switch]$Wait,
@@ -1099,7 +1144,32 @@ function Start-AAPWorkflowJobTemplate {
             $match.id
         }
 
-        # Build extra_vars from dynamic params + ExtraVars
+        # Validate mutual exclusion of extra vars parameters
+        $extraVarsParamsProvided = @('ExtraVars', 'ExtraVarsJson', 'ExtraVarsFile') |
+            Where-Object { $PSBoundParameters.ContainsKey($_) }
+        if ($extraVarsParamsProvided.Count -gt 1) {
+            throw "Only one of -ExtraVars, -ExtraVarsJson, or -ExtraVarsFile may be specified."
+        }
+
+        # Resolve extra vars from whichever input form was provided
+        $resolvedExtraVars = @{}
+        if ($PSBoundParameters.ContainsKey('ExtraVars')) {
+            $resolvedExtraVars = $ExtraVars
+        } elseif ($PSBoundParameters.ContainsKey('ExtraVarsJson')) {
+            try {
+                $resolvedExtraVars = $ExtraVarsJson | ConvertFrom-Json -AsHashtable
+            } catch {
+                throw "Failed to parse -ExtraVarsJson: $_"
+            }
+        } elseif ($PSBoundParameters.ContainsKey('ExtraVarsFile')) {
+            try {
+                $resolvedExtraVars = Get-Content -Path $ExtraVarsFile -Raw | ConvertFrom-Json -AsHashtable
+            } catch {
+                throw "Failed to parse -ExtraVarsFile '$ExtraVarsFile': $_"
+            }
+        }
+
+        # Build extra_vars from dynamic params + resolved extra vars
         $vars = @{}
 
         # Collect bound dynamic parameters (survey fields)
@@ -1116,11 +1186,9 @@ function Start-AAPWorkflowJobTemplate {
             }
         }
 
-        # Merge ExtraVars (explicit ExtraVars take precedence)
-        if ($ExtraVars) {
-            foreach ($key in $ExtraVars.Keys) {
-                $vars[$key] = $ExtraVars[$key]
-            }
+        # Merge resolved extra vars (take precedence over survey fields)
+        foreach ($key in $resolvedExtraVars.Keys) {
+            $vars[$key] = $resolvedExtraVars[$key]
         }
 
         # Build launch body
