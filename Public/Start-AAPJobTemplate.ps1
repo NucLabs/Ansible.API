@@ -17,6 +17,8 @@ function Start-AAPJobTemplate {
         A JSON string of extra variables to pass to the job. Mutually exclusive with -ExtraVars and -ExtraVarsFile.
     .PARAMETER ExtraVarsFile
         Path to a JSON file containing extra variables. Mutually exclusive with -ExtraVars and -ExtraVarsJson.
+    .PARAMETER Limit
+        Ansible host pattern that limits which hosts the job runs against. Supports the same host patterns as AAP/AWX.
     .PARAMETER Wait
         Wait for the job to complete before returning.
     .PARAMETER WaitTimeout
@@ -27,6 +29,8 @@ function Start-AAPJobTemplate {
         Start-AAPJobTemplate -Name 'Deploy Web App' -Wait
     .EXAMPLE
         Start-AAPJobTemplate -Name 'Provision Server' -TargetHost 'web01' -DeployEnv 'production' -Wait
+    .EXAMPLE
+        Start-AAPJobTemplate -Name 'Deploy Web App' -Limit 'webservers:&production' -Wait
     #>
     [CmdletBinding(DefaultParameterSetName = 'ByName')]
     param(
@@ -45,6 +49,9 @@ function Start-AAPJobTemplate {
         [Parameter()]
         [ValidateScript({ Test-Path $_ -PathType Leaf })]
         [string]$ExtraVarsFile,
+
+        [Parameter()]
+        [string]$Limit,
 
         [Parameter()]
         [switch]$Wait,
@@ -163,6 +170,9 @@ function Start-AAPJobTemplate {
         $body = @{}
         if ($vars.Count -gt 0) {
             $body['extra_vars'] = $vars
+        }
+        if ($PSBoundParameters.ContainsKey('Limit')) {
+            $body['limit'] = $Limit
         }
 
         # Launch

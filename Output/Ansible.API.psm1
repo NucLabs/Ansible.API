@@ -1,6 +1,6 @@
 #
 # Module: Ansible.API
-# Built:  2026-06-10 13:44:18
+# Built:  2026-09-07 14:41:12
 #
 
 function ConvertTo-AAPDynamicParam {
@@ -832,6 +832,8 @@ function Start-AAPJobTemplate {
         A JSON string of extra variables to pass to the job. Mutually exclusive with -ExtraVars and -ExtraVarsFile.
     .PARAMETER ExtraVarsFile
         Path to a JSON file containing extra variables. Mutually exclusive with -ExtraVars and -ExtraVarsJson.
+    .PARAMETER Limit
+        Ansible host pattern that limits which hosts the job runs against. Supports the same host patterns as AAP/AWX.
     .PARAMETER Wait
         Wait for the job to complete before returning.
     .PARAMETER WaitTimeout
@@ -842,6 +844,8 @@ function Start-AAPJobTemplate {
         Start-AAPJobTemplate -Name 'Deploy Web App' -Wait
     .EXAMPLE
         Start-AAPJobTemplate -Name 'Provision Server' -TargetHost 'web01' -DeployEnv 'production' -Wait
+    .EXAMPLE
+        Start-AAPJobTemplate -Name 'Deploy Web App' -Limit 'webservers:&production' -Wait
     #>
     [CmdletBinding(DefaultParameterSetName = 'ByName')]
     param(
@@ -860,6 +864,9 @@ function Start-AAPJobTemplate {
         [Parameter()]
         [ValidateScript({ Test-Path $_ -PathType Leaf })]
         [string]$ExtraVarsFile,
+
+        [Parameter()]
+        [string]$Limit,
 
         [Parameter()]
         [switch]$Wait,
@@ -979,6 +986,9 @@ function Start-AAPJobTemplate {
         if ($vars.Count -gt 0) {
             $body['extra_vars'] = $vars
         }
+        if ($PSBoundParameters.ContainsKey('Limit')) {
+            $body['limit'] = $Limit
+        }
 
         # Launch
         $job = Invoke-AAPRestMethod -Method POST -Path "/api/v2/job_templates/$templateId/launch/" -Body $body
@@ -1049,6 +1059,8 @@ function Start-AAPWorkflowJobTemplate {
         A JSON string of extra variables to pass to the workflow job. Mutually exclusive with -ExtraVars and -ExtraVarsFile.
     .PARAMETER ExtraVarsFile
         Path to a JSON file containing extra variables. Mutually exclusive with -ExtraVars and -ExtraVarsJson.
+    .PARAMETER Limit
+        Ansible host pattern that limits which hosts the workflow job runs against. Supports the same host patterns as AAP/AWX.
     .PARAMETER Wait
         Wait for the workflow job to complete before returning.
     .PARAMETER WaitTimeout
@@ -1059,6 +1071,8 @@ function Start-AAPWorkflowJobTemplate {
         Start-AAPWorkflowJobTemplate -Name 'Deploy Pipeline' -Wait
     .EXAMPLE
         Start-AAPWorkflowJobTemplate -Name 'Provision Environment' -TargetEnv 'production' -Wait
+    .EXAMPLE
+        Start-AAPWorkflowJobTemplate -Name 'Deploy Pipeline' -Limit 'webservers:&production' -Wait
     #>
     [CmdletBinding(DefaultParameterSetName = 'ByName')]
     param(
@@ -1077,6 +1091,9 @@ function Start-AAPWorkflowJobTemplate {
         [Parameter()]
         [ValidateScript({ Test-Path $_ -PathType Leaf })]
         [string]$ExtraVarsFile,
+
+        [Parameter()]
+        [string]$Limit,
 
         [Parameter()]
         [switch]$Wait,
@@ -1195,6 +1212,9 @@ function Start-AAPWorkflowJobTemplate {
         $body = @{}
         if ($vars.Count -gt 0) {
             $body['extra_vars'] = $vars
+        }
+        if ($PSBoundParameters.ContainsKey('Limit')) {
+            $body['limit'] = $Limit
         }
 
         # Launch
