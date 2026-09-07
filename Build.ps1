@@ -11,7 +11,7 @@ param()
 
 $ModuleName = 'Ansible.API'
 $ModuleGuid = '9243b235-efb1-4ee1-adc3-f5007c70cc62'
-$OutputDir  = Join-Path $PSScriptRoot 'Output'
+$OutputDir  = Join-Path $PSScriptRoot 'Output\Ansible.Api'
 
 # Ensure output directory exists
 if (-not (Test-Path $OutputDir)) {
