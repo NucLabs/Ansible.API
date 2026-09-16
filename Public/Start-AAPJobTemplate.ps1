@@ -85,9 +85,9 @@ function Start-AAPJobTemplate {
                 if ($cached -and $cached.TemplateId -eq $templateId) {
                     $surveySpec = $cached.Spec
                 } else {
-                    $template = Invoke-AAPRestMethod -Method GET -Path "/api/v2/job_templates/$templateId/"
+                    $template = Invoke-AAPRestMethod -Method GET -Path "/api/controller/v2/job_templates/$templateId/"
                     if ($template.survey_enabled) {
-                        $survey = Invoke-AAPRestMethod -Method GET -Path "/api/v2/job_templates/$templateId/survey_spec/"
+                        $survey = Invoke-AAPRestMethod -Method GET -Path "/api/controller/v2/job_templates/$templateId/survey_spec/"
                         $surveySpec = $survey.spec
                         $Script:AAPSession.SurveySpecCache = @{
                             TemplateId = $templateId
@@ -176,7 +176,7 @@ function Start-AAPJobTemplate {
         }
 
         # Launch
-        $job = Invoke-AAPRestMethod -Method POST -Path "/api/v2/job_templates/$templateId/launch/" -Body $body
+        $job = Invoke-AAPRestMethod -Method POST -Path "/api/controller/v2/job_templates/$templateId/launch/" -Body $body
 
         if ($Wait) {
             $jobId = $job.id
@@ -184,7 +184,7 @@ function Start-AAPJobTemplate {
             $terminalStates = @('successful', 'failed', 'error', 'canceled')
 
             while ($elapsed -lt $WaitTimeout) {
-                $jobStatus = Invoke-AAPRestMethod -Method GET -Path "/api/v2/jobs/$jobId/"
+                $jobStatus = Invoke-AAPRestMethod -Method GET -Path "/api/controller/v2/jobs/$jobId/"
 
                 if ($jobStatus.status -in $terminalStates) {
                     return $jobStatus

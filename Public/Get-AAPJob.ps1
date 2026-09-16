@@ -3,7 +3,7 @@ function Get-AAPJob {
     .SYNOPSIS
         Retrieves an AAP/AWX job by ID, optionally waiting for completion.
     .DESCRIPTION
-        Fetches job status from GET /api/v2/jobs/{id}/. With -Wait, polls until
+        Fetches job status from GET /api/controller/v2/jobs/{id}/. With -Wait, polls until
         the job reaches a terminal state (successful, failed, error, canceled).
     .PARAMETER Id
         The job ID to retrieve.
@@ -33,7 +33,7 @@ function Get-AAPJob {
         [int]$PollInterval = 5
     )
 
-    $job = Invoke-AAPRestMethod -Method GET -Path "/api/v2/jobs/$Id/"
+    $job = Invoke-AAPRestMethod -Method GET -Path "/api/controller/v2/jobs/$Id/"
 
     if (-not $Wait) {
         return $job
@@ -46,7 +46,7 @@ function Get-AAPJob {
         Write-Verbose "Job $Id status: $($job.status) — waiting ($elapsed`s / $WaitTimeout`s)"
         Start-Sleep -Seconds $PollInterval
         $elapsed += $PollInterval
-        $job = Invoke-AAPRestMethod -Method GET -Path "/api/v2/jobs/$Id/"
+        $job = Invoke-AAPRestMethod -Method GET -Path "/api/controller/v2/jobs/$Id/"
     }
 
     if ($job.status -notin $terminalStates) {

@@ -27,10 +27,10 @@ function Get-AAPWorkflowJobTemplate {
 
     switch ($PSCmdlet.ParameterSetName) {
         'ById' {
-            Invoke-AAPRestMethod -Method GET -Path "/api/v2/workflow_job_templates/$Id/"
+            Invoke-AAPRestMethod -Method GET -Path "/api/controller/v2/workflow_job_templates/$Id/"
         }
         'ByName' {
-            $path = '/api/v2/workflow_job_templates/?page_size=200'
+            $path = '/api/controller/v2/workflow_job_templates/?page_size=200'
             if ($Name) {
                 $searchTerm = $Name -replace '[*?]', ''
                 $path += "&search=$([uri]::EscapeDataString($searchTerm))"
@@ -54,7 +54,7 @@ function Get-AAPWorkflowJobTemplate {
         }
         default {
             # List all
-            $path = '/api/v2/workflow_job_templates/?page_size=200'
+            $path = '/api/controller/v2/workflow_job_templates/?page_size=200'
             $results = [System.Collections.Generic.List[object]]::new()
             while ($path) {
                 $response = Invoke-AAPRestMethod -Method GET -Path $path

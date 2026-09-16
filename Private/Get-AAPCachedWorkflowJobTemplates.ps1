@@ -3,7 +3,7 @@ function Get-AAPCachedWorkflowJobTemplates {
     .SYNOPSIS
         Returns a cached list of all workflow job templates, refreshing if stale.
     .DESCRIPTION
-        Fetches all workflow job templates from /api/v2/workflow_job_templates/ with pagination.
+        Fetches all workflow job templates from /api/controller/v2/workflow_job_templates/ with pagination.
         Caches the results in $Script:AAPSession.WorkflowJobTemplateCache for 60 seconds
         to avoid excessive API calls during tab completion.
     #>
@@ -23,7 +23,7 @@ function Get-AAPCachedWorkflowJobTemplates {
 
     # Fetch all templates with pagination
     $templates = [System.Collections.Generic.List[object]]::new()
-    $path = '/api/v2/workflow_job_templates/?page_size=200'
+    $path = '/api/controller/v2/workflow_job_templates/?page_size=200'
 
     while ($path) {
         $response = Invoke-AAPRestMethod -Method GET -Path $path
@@ -31,7 +31,7 @@ function Get-AAPCachedWorkflowJobTemplates {
             $templates.AddRange($response.results)
         }
         if ($response.next) {
-            # next is a full path like /api/v2/workflow_job_templates/?page=2
+            # next is a full path like /api/controller/v2/workflow_job_templates/?page=2
             $path = $response.next
         } else {
             $path = $null

@@ -3,7 +3,7 @@ function Get-AAPApiUrl {
     .SYNOPSIS
         Builds a full API URL from the stored session base URL and a relative path.
     .PARAMETER Path
-        The relative API path, e.g. '/api/v2/me/'
+        The relative API path, e.g. '/api/gateway/v1/me/'
     #>
     [CmdletBinding()]
     param(

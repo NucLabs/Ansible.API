@@ -21,7 +21,7 @@ function Disconnect-AAP {
     if ($authMethod -eq 'BearerToken' -and $Script:AAPSession.TokenId) {
         # Revoke the token we created
         try {
-            Invoke-AAPRestMethod -Method DELETE -Path "/api/v2/tokens/$($Script:AAPSession.TokenId)/"
+            Invoke-AAPRestMethod -Method DELETE -Path "/api/gateway/v1/tokens/$($Script:AAPSession.TokenId)/"
         }
         catch {
             Write-Warning "Failed to revoke token on server: $_"

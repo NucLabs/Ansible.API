@@ -3,7 +3,7 @@ function Get-AAPJobEvents {
     .SYNOPSIS
         Retrieves the job events for a given AAP/AWX job.
     .DESCRIPTION
-        Fetches events from GET /api/v2/jobs/{id}/job_events/ and returns them
+        Fetches events from GET /api/controller/v2/jobs/{id}/job_events/ and returns them
         as individual objects. Handles API pagination automatically.
         Use -Task to filter to a specific task name (server-side) and -EventType
         to filter by event kind (default: all events). Combine them to get only
@@ -59,7 +59,7 @@ function Get-AAPJobEvents {
             $query += "&event=$([uri]::EscapeDataString($EventType))"
         }
 
-        $path = "/api/v2/jobs/$jobId/job_events/?$query"
+        $path = "/api/controller/v2/jobs/$jobId/job_events/?$query"
         $results = [System.Collections.Generic.List[object]]::new()
 
         while ($path) {

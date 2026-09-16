@@ -3,7 +3,7 @@ function ConvertTo-AAPDynamicParam {
     .SYNOPSIS
         Converts an AWX/AAP survey_spec into a RuntimeDefinedParameterDictionary.
     .DESCRIPTION
-        Takes the spec array from GET /api/v2/job_templates/{id}/survey_spec/
+        Takes the spec array from GET /api/controller/v2/job_templates/{id}/survey_spec/
         and generates typed PowerShell dynamic parameters. Stores the list of
         survey variable names in $Script:AAPSurveyParamNames.
     #>

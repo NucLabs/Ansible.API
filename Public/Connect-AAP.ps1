@@ -3,10 +3,10 @@ function Connect-AAP {
     .SYNOPSIS
         Connects to an AAP/AWX instance.
     .DESCRIPTION
-        Authenticates against the AAP/AWX API. Supports three authentication methods:
+        Authenticates against the AAP platform gateway (AAP 2.5+). Supports three authentication methods:
         1. Credential (default) — Creates an OAuth2 token via Basic Auth, falling back
-           to session-based login for environments where Basic Auth or token creation
-           is disabled (e.g. LDAP users).
+           to session-based login for externally-authenticated (e.g. LDAP) accounts, for
+           which the gateway disables self-service token creation by default.
         2. Token — Uses a pre-generated Personal Access Token (OAuth2 token).
     .PARAMETER Url
         The base URL of the AAP/AWX server (e.g. http://localhost:32000).
@@ -55,7 +55,7 @@ function Connect-AAP {
 
         # Verify the token works
         try {
-            $me = Invoke-AAPRestMethod -Method GET -Path '/api/v2/me/'
+            $me = Invoke-AAPRestMethod -Method GET -Path '/api/gateway/v1/me/'
             $username = $me.results[0].username
         }
         catch {
@@ -72,7 +72,7 @@ function Connect-AAP {
     }
 
     # --- Credential-based auth ---
-    $tokenUrl = "$baseUrl/api/v2/tokens/"
+    $tokenUrl = "$baseUrl/api/gateway/v1/tokens/"
 
     $authBytes = [System.Text.Encoding]::UTF8.GetBytes(
         "$($Credential.UserName):$($Credential.GetNetworkCredential().Password)"
@@ -90,7 +90,7 @@ function Connect-AAP {
         $statusCode = $_.Exception.Response.StatusCode.value__
         $errorBody = $_.ErrorDetails.Message
         if ($statusCode -in 401, 403) {
-            Write-Verbose 'Basic auth token creation failed, falling back to session-based login via /api/login/'
+            Write-Verbose 'Basic auth token creation failed, falling back to session-based login via /api/gateway/v1/login/'
         } else {
             throw
         }
@@ -115,16 +115,17 @@ function Connect-AAP {
         }
     }
 
-    # Step 2: Session-based login via /api/login/
+    # Step 2: Session-based login via the platform gateway
+    $loginUrl = "$baseUrl/api/gateway/v1/login/"
     $session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
 
-    # GET /api/login/ to obtain the CSRF cookie
-    Invoke-WebRequest -Uri "$baseUrl/api/login/" -SessionVariable 'session' `
+    # GET the login endpoint to obtain the CSRF cookie
+    Invoke-WebRequest -Uri $loginUrl -SessionVariable 'session' `
         -UseBasicParsing @certParam | Out-Null
 
     $csrfToken = $session.Cookies.GetCookies("$baseUrl")['csrftoken'].Value
 
-    # POST /api/login/ with form data to establish an authenticated session
+    # POST to the login endpoint with form data to establish an authenticated session
     $loginBody = @{
         username            = $Credential.UserName
         password            = $Credential.GetNetworkCredential().Password
@@ -132,9 +133,9 @@ function Connect-AAP {
         next                = '/api/'
     }
 
-    Invoke-WebRequest -Uri "$baseUrl/api/login/" -Method POST `
+    Invoke-WebRequest -Uri $loginUrl -Method POST `
         -Body $loginBody `
-        -Headers @{ Referer = "$baseUrl/api/login/" } `
+        -Headers @{ Referer = $loginUrl; 'X-CSRFToken' = $csrfToken } `
         -WebSession $session -UseBasicParsing `
         -ContentType 'application/x-www-form-urlencoded' @certParam | Out-Null
 
@@ -143,7 +144,7 @@ function Connect-AAP {
     $tokenCreated = $false
     try {
         $response = Invoke-RestMethod -Method POST -Uri $tokenUrl `
-            -Headers @{ Referer = "$baseUrl/api/v2/tokens/"; 'X-CSRFToken' = $csrfToken } `
+            -Headers @{ Referer = $tokenUrl; 'X-CSRFToken' = $csrfToken } `
             -WebSession $session -ContentType 'application/json' @certParam
         $tokenCreated = $true
     }
